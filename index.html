@@ -1,0 +1,1677 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Deli-Change / デリバリー配達員用お釣り計算</title>
+  
+  <!-- Google Fonts for premium typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* Reset & CSS variables */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Outfit', 'Noto Sans JP', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    :root {
+      --bg-color: #09090b;
+      --card-bg: #18181b;
+      --card-border: #27272a;
+      --text-primary: #f4f4f5;
+      --text-secondary: #a1a1aa;
+      --accent-green: #10b981;
+      --accent-green-glow: rgba(16, 185, 129, 0.15);
+      --accent-blue: #3b82f6;
+      --accent-blue-glow: rgba(59, 130, 246, 0.15);
+      --accent-amber: #f59e0b;
+      --accent-amber-glow: rgba(245, 158, 11, 0.15);
+      --accent-red: #ef4444;
+      --accent-red-glow: rgba(239, 68, 68, 0.15);
+      --btn-active-scale: 0.94;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-primary);
+      overflow: hidden;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+    }
+
+    /* Header styling */
+    header {
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 100%);
+      z-index: 10;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-logo {
+      font-weight: 700;
+      font-size: 1.1rem;
+      letter-spacing: 1.5px;
+      color: var(--text-primary);
+      text-shadow: 0 0 10px rgba(255,255,255,0.1);
+    }
+
+    .brand-logo span {
+      color: var(--accent-green);
+    }
+
+    .status-badges {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .badge {
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 3px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .badge-offline {
+      background-color: #27272a;
+      color: var(--text-secondary);
+      border: 1px solid #3f3f46;
+    }
+
+    .badge-active {
+      background-color: rgba(16, 185, 129, 0.1);
+      color: var(--accent-green);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    .dot {
+      width: 6px;
+      height: 6px;
+      background-color: var(--accent-green);
+      border-radius: 50%;
+      display: inline-block;
+      animation: blink 2s infinite;
+    }
+
+    @keyframes blink {
+      0% { opacity: 0.3; }
+      50% { opacity: 1; }
+      100% { opacity: 0.3; }
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .icon-btn {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      padding: 6px;
+      border-radius: 50%;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .icon-btn:active {
+      transform: scale(0.9);
+      color: var(--text-primary);
+    }
+
+    /* Warning Popover Panel */
+    .warning-popover {
+      display: none;
+      position: absolute;
+      top: 60px;
+      right: 16px;
+      background-color: #16161a;
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 12px;
+      width: calc(100% - 32px);
+      max-width: 320px;
+      z-index: 150;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.8);
+      animation: fadeIn 0.15s ease-out;
+    }
+
+    .warning-popover.open {
+      display: block;
+    }
+
+    .warning-popover-header {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .warning-popover-close {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 1.1rem;
+    }
+
+    /* Main Display Card */
+    .display-card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--card-border);
+      margin: 8px 16px 12px 16px;
+      border-radius: 16px;
+      padding: 16px;
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .display-card.active-price {
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 15px var(--accent-blue-glow);
+    }
+
+    .display-card.active-received {
+      border-color: var(--accent-amber);
+      box-shadow: 0 0 15px var(--accent-amber-glow);
+    }
+
+    /* Gesture overlay animation feedback */
+    .gesture-hint {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      font-weight: 700;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+      z-index: 5;
+    }
+
+    .gesture-hint.backspace {
+      background: linear-gradient(90deg, rgba(239,68,68,0.2) 0%, rgba(0,0,0,0) 100%);
+      color: var(--accent-red);
+    }
+
+    .gesture-hint.clear {
+      background: linear-gradient(-90deg, rgba(245,158,11,0.2) 0%, rgba(0,0,0,0) 100%);
+      color: var(--accent-amber);
+    }
+
+    .swipe-tutorial-text {
+      text-align: center;
+      font-size: 0.65rem;
+      color: var(--text-secondary);
+      opacity: 0.6;
+      margin-bottom: 8px;
+    }
+
+    /* Display Rows */
+    .input-section {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .display-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background-color: rgba(255, 255, 255, 0.02);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .display-row.active {
+      background-color: rgba(255, 255, 255, 0.05);
+    }
+
+    .display-row.active.price {
+      border-color: rgba(59, 130, 246, 0.3);
+    }
+
+    .display-row.active.received {
+      border-color: rgba(245, 158, 11, 0.3);
+    }
+
+    .row-label {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+
+    .row-value {
+      font-size: 1.8rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .price .row-value {
+      color: var(--accent-blue);
+    }
+
+    .received .row-value {
+      color: var(--accent-amber);
+    }
+
+    /* Change Result Panel */
+    .result-section {
+      border-top: 1px dashed var(--card-border);
+      padding-top: 12px;
+      margin-top: 12px;
+      display: flex;
+      flex-direction: column;
+      flex-grow: 1;
+      justify-content: center;
+    }
+
+    .change-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 8px;
+    }
+
+    .change-label {
+      font-size: 1rem;
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+
+    .change-value {
+      font-size: 2.2rem;
+      font-weight: 700;
+      color: var(--accent-green);
+      text-shadow: 0 0 10px var(--accent-green-glow);
+    }
+
+    .change-value.insufficient {
+      color: var(--accent-red);
+      text-shadow: 0 0 10px var(--accent-red-glow);
+    }
+
+    .change-value.shortage {
+      color: var(--accent-amber);
+      text-shadow: 0 0 10px var(--accent-amber-glow);
+    }
+
+    /* Change Coins/Bills Breakdown Grid */
+    .breakdown-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .denom-badge {
+      background-color: rgba(255,255,255,0.03);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 6px 4px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      animation: fadeIn 0.2s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.9); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .denom-badge.bill {
+      border-color: rgba(59, 130, 246, 0.2);
+    }
+
+    .denom-badge.coin {
+      border-color: rgba(16, 185, 129, 0.2);
+    }
+
+    .denom-name {
+      font-size: 0.65rem;
+      color: var(--text-secondary);
+      margin-bottom: 2px;
+    }
+
+    .denom-count {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .denom-count span {
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+      font-weight: normal;
+      margin-left: 1px;
+    }
+
+    /* Error Message Panel */
+    .error-panel {
+      color: var(--accent-red);
+      background-color: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-align: center;
+      margin-top: 6px;
+      display: none;
+    }
+
+    /* Keypad Area */
+    .keypad-container {
+      background-color: #0e0f11;
+      border-top: 1px solid var(--card-border);
+      padding: 8px 12px 24px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .input-mode-selector {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .mode-btn {
+      background-color: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--card-border);
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      font-weight: 700;
+      padding: 8px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .mode-btn.active.price {
+      background-color: rgba(59, 130, 246, 0.15);
+      border-color: var(--accent-blue);
+      color: var(--accent-blue);
+    }
+
+    .mode-btn.active.received {
+      background-color: rgba(245, 158, 11, 0.15);
+      border-color: var(--accent-amber);
+      color: var(--accent-amber);
+    }
+
+    .keypad-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .key-btn {
+      background-color: #1e1e24;
+      border: 1px solid #2e2e38;
+      border-radius: 12px;
+      color: var(--text-primary);
+      font-size: 1.6rem;
+      font-weight: 600;
+      height: 60px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.05s, background-color 0.05s;
+      touch-action: manipulation;
+    }
+
+    .key-btn:active {
+      transform: scale(var(--btn-active-scale));
+      background-color: #2e2e38;
+    }
+
+    /* Utility action keys */
+    .key-btn.action {
+      background-color: #27272a;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+    }
+
+    .key-btn.action:active {
+      background-color: #3f3f46;
+      color: var(--text-primary);
+    }
+
+    .key-btn.accent-blue {
+      color: #93c5fd;
+      background-color: rgba(59, 130, 246, 0.1);
+      border-color: rgba(59, 130, 246, 0.2);
+    }
+
+    .key-btn.accent-blue:active {
+      background-color: rgba(59, 130, 246, 0.2);
+    }
+
+    /* Bottom actions row */
+    .bottom-actions {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .exact-btn {
+      background-color: #27272a;
+      border: 1px solid #3f3f46;
+      color: var(--text-primary);
+      font-size: 1rem;
+      font-weight: 700;
+      border-radius: 12px;
+      cursor: pointer;
+      height: 62px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.05s;
+    }
+
+    .exact-btn:active {
+      transform: scale(var(--btn-active-scale));
+      background-color: #3f3f46;
+    }
+
+    .confirm-btn {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      border: none;
+      color: white;
+      font-size: 1.2rem;
+      font-weight: 700;
+      border-radius: 12px;
+      cursor: pointer;
+      height: 62px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+      transition: all 0.05s;
+    }
+
+    .confirm-btn:active {
+      transform: scale(var(--btn-active-scale));
+      box-shadow: 0 2px 6px rgba(16, 185, 129, 0.1);
+      opacity: 0.9;
+    }
+
+    /* Drawer / Modal: Inventory Management */
+    .drawer-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.8);
+      z-index: 200;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .drawer-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .drawer {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 85%;
+      background-color: #121214;
+      border-top: 1px solid var(--card-border);
+      border-top-left-radius: 20px;
+      border-top-right-radius: 20px;
+      z-index: 201;
+      transform: translateY(100%);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 -8px 32px rgba(0,0,0,0.8);
+    }
+
+    .drawer.open {
+      transform: translateY(0);
+    }
+
+    .drawer-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .drawer-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .drawer-close {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 1.5rem;
+      cursor: pointer;
+    }
+
+    .drawer-content {
+      padding: 16px;
+      overflow-y: auto;
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .preset-panel {
+      background-color: rgba(255,255,255,0.02);
+      border: 1px solid var(--card-border);
+      padding: 12px;
+      border-radius: 12px;
+    }
+
+    .section-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .preset-buttons {
+      display: flex;
+      gap: 8px;
+    }
+
+    .preset-btn {
+      flex: 1;
+      background-color: #1e1e24;
+      border: 1px solid #2e2e38;
+      color: var(--text-primary);
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .preset-btn:active {
+      transform: scale(0.95);
+      background-color: #27272a;
+    }
+
+    .inventory-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .inventory-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background-color: rgba(255,255,255,0.01);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+    }
+
+    .inventory-name {
+      font-weight: 600;
+      font-size: 0.95rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .inventory-name.bill { color: #60a5fa; }
+    .inventory-name.coin { color: #34d399; }
+
+    .inventory-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .control-btn {
+      background-color: #1e1e24;
+      border: 1px solid #2e2e38;
+      color: var(--text-primary);
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .control-btn:active {
+      transform: scale(0.9);
+      background-color: #2e2e38;
+    }
+
+    .inventory-val {
+      font-size: 1.1rem;
+      font-weight: 700;
+      width: 36px;
+      text-align: center;
+    }
+
+    .config-footer {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .settings-btn {
+      flex: 1;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+    }
+
+    .settings-btn.save {
+      background-color: var(--accent-green);
+      color: white;
+    }
+
+    .settings-btn.save:active {
+      opacity: 0.9;
+    }
+
+    .threshold-panel {
+      background-color: rgba(255,255,255,0.02);
+      border: 1px solid var(--card-border);
+      padding: 12px;
+      border-radius: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .threshold-input-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .threshold-input {
+      background-color: #1e1e24;
+      border: 1px solid #2e2e38;
+      color: var(--text-primary);
+      width: 50px;
+      padding: 6px;
+      border-radius: 6px;
+      text-align: center;
+      font-weight: 700;
+    }
+
+    /* Ripple active effect simulation */
+    .ripple {
+      position: absolute;
+      background: rgba(255,255,255,0.1);
+      border-radius: 50%;
+      transform: scale(0);
+      animation: rippleEffect 0.3s ease-out;
+      pointer-events: none;
+    }
+
+    @keyframes rippleEffect {
+      to {
+        transform: scale(4);
+        opacity: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-logo">⚡ DELI<span>CHANGE</span></div>
+      <div class="status-badges">
+        <div class="badge badge-offline">OFFLINE</div>
+        <div class="badge badge-active"><span class="dot"></span>ACTIVE</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <!-- Warning Toggle Button -->
+      <button class="icon-btn" id="warningToggle" title="警告の確認" style="position: relative;">
+        <!-- Alert Icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+        <span id="warningBadge" style="display: none; position: absolute; top: -1px; right: -1px; width: 8px; height: 8px; background-color: var(--accent-amber); border-radius: 50%; box-shadow: 0 0 6px var(--accent-amber);"></span>
+      </button>
+      <button class="icon-btn" id="soundToggle" title="音量の切替">
+        <!-- Speaker Icon (default enabled) -->
+        <svg id="soundOnIcon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+        <svg id="soundOffIcon" style="display: none;" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
+      </button>
+      <button class="icon-btn" id="openSettings" title="在庫・プリセット設定">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Warning Popover Panel -->
+  <div class="warning-popover" id="warningPopover">
+    <div class="warning-popover-header">
+      <span>⚠️ 釣銭不足の警告</span>
+      <button class="warning-popover-close" id="closeWarningPopover">&times;</button>
+    </div>
+    <div id="warningPopoverContent" style="display: flex; flex-direction: column; gap: 8px;">
+      <!-- Populated dynamically -->
+    </div>
+  </div>
+
+  <!-- Display Card (Gestures area) -->
+  <div class="display-card active-price" id="displayCard">
+    <div class="gesture-hint backspace" id="backspaceHint">← 1文字消去</div>
+    <div class="gesture-hint clear" id="clearHint">全消去 →</div>
+
+    <div class="swipe-tutorial-text">
+      ← スワイプで消去 / → 全消去 (画面のどこでも可)
+    </div>
+
+    <div class="input-section">
+      <!-- Total Price Input Row -->
+      <div class="display-row active price" id="priceRow">
+        <span class="row-label">商品代金</span>
+        <span class="row-value" id="priceVal">¥ 0</span>
+      </div>
+
+      <!-- Received Amount Input Row -->
+      <div class="display-row received" id="receivedRow">
+        <span class="row-label">お預かり</span>
+        <span class="row-value" id="receivedVal">¥ 0</span>
+      </div>
+    </div>
+
+    <!-- Calculations Result Section -->
+    <div class="result-section">
+      <div class="change-header">
+        <span class="change-label" id="calcLabel">お釣り</span>
+        <span class="change-value" id="changeVal">¥ 0</span>
+      </div>
+      
+      <!-- Breakdown Grid (e.g. 1000 yen x 1, 100 yen x 3) -->
+      <div class="breakdown-grid" id="breakdownGrid"></div>
+
+      <!-- Error warning banner -->
+      <div class="error-panel" id="errorPanel"></div>
+    </div>
+  </div>
+
+  <!-- Keypad Area -->
+  <div class="keypad-container">
+    <!-- Active state toggler -->
+    <div class="input-mode-selector">
+      <button class="mode-btn active price" id="priceModeBtn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><line x1="12" y1="4" x2="12" y2="20"></line></svg>
+        商品代金を入力
+      </button>
+      <button class="mode-btn received" id="receivedModeBtn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><circle cx="12" cy="12" r="3"></circle></svg>
+        お預かりを入力
+      </button>
+    </div>
+
+    <!-- Keys Grid -->
+    <div class="keypad-grid">
+      <button class="key-btn" data-key="7">7</button>
+      <button class="key-btn" data-key="8">8</button>
+      <button class="key-btn" data-key="9">9</button>
+      <button class="key-btn action" data-key="C">C</button>
+
+      <button class="key-btn" data-key="4">4</button>
+      <button class="key-btn" data-key="5">5</button>
+      <button class="key-btn" data-key="6">6</button>
+      <button class="key-btn action" data-key="backspace">⌫</button>
+
+      <button class="key-btn" data-key="1">1</button>
+      <button class="key-btn" data-key="2">2</button>
+      <button class="key-btn" data-key="3">3</button>
+      <button class="key-btn accent-blue" data-key="+1000">+1000</button>
+
+      <button class="key-btn" data-key="0">0</button>
+      <button class="key-btn" data-key="00">00</button>
+      <button class="key-btn accent-blue" data-key="+5000">+5000</button>
+      <button class="key-btn accent-blue" data-key="+10000">+10000</button>
+    </div>
+
+    <!-- Confirm / Exact Payment Actions -->
+    <div class="bottom-actions">
+      <button class="exact-btn" id="exactBtn">ちょうど</button>
+      <button class="confirm-btn" id="confirmBtn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        お釣りお渡し・確定
+      </button>
+    </div>
+  </div>
+
+  <!-- Settings / Inventory Setup Drawer Overlay -->
+  <div class="drawer-overlay" id="drawerOverlay"></div>
+  <div class="drawer" id="settingsDrawer">
+    <div class="drawer-header">
+      <div class="drawer-title">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        釣銭在庫＆プリセット設定
+      </div>
+      <button class="drawer-close" id="closeSettings">&times;</button>
+    </div>
+    <div class="drawer-content">
+      
+      <!-- Preset Refills -->
+      <div class="preset-panel">
+        <div class="section-title">いつものセットをロード (プリセット)</div>
+        <div class="preset-buttons">
+          <button class="preset-btn" id="presetLoadStandard">昼勤 (千円x10, 百円x20等)</button>
+          <button class="preset-btn" id="presetLoadHeavy">夜勤 (千円x15, 百円x30等)</button>
+        </div>
+      </div>
+
+      <!-- Threshold Slider -->
+      <div class="threshold-panel">
+        <div>
+          <div class="section-title" style="margin-bottom: 2px;">不足アラートのしきい値</div>
+          <div style="font-size: 0.75rem; color: var(--text-secondary);">残り枚数が以下になるとアラート表示</div>
+        </div>
+        <div class="threshold-input-container">
+          <input type="number" class="threshold-input" id="alertThresholdInput" min="0" max="10" value="3">
+          <span style="font-size: 0.85rem; font-weight: 700;">枚</span>
+        </div>
+      </div>
+
+      <!-- Active Denominations stock settings -->
+      <div class="section-title">現在の釣銭在庫数</div>
+      <div class="inventory-list" id="inventoryList">
+        <!-- Dynamically populated from JS -->
+      </div>
+
+      <!-- Settings bottom actions -->
+      <div class="config-footer">
+        <button class="settings-btn save" id="savePresetConfig">現在の枚数を「いつものセット」に保存</button>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // Audio Feedback Controller (Web Audio API synth)
+    const AudioController = {
+      enabled: true,
+      audioCtx: null,
+
+      init() {
+        // AudioContext is initialized lazily upon first interaction to bypass browser policies
+        if (!this.audioCtx) {
+          this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+      },
+
+      toggle() {
+        this.enabled = !this.enabled;
+        const soundOnIcon = document.getElementById('soundOnIcon');
+        const soundOffIcon = document.getElementById('soundOffIcon');
+        if (this.enabled) {
+          soundOnIcon.style.display = 'block';
+          soundOffIcon.style.display = 'none';
+          this.beep(600, 0.05); // quick alert sound
+        } else {
+          soundOnIcon.style.display = 'none';
+          soundOffIcon.style.display = 'block';
+        }
+      },
+
+      beep(freq, duration, type = 'sine') {
+        if (!this.enabled) return;
+        this.init();
+        try {
+          if (this.audioCtx.state === 'suspended') {
+            this.audioCtx.resume();
+          }
+          const osc = this.audioCtx.createOscillator();
+          const gain = this.audioCtx.createGain();
+
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, this.audioCtx.currentTime);
+
+          gain.gain.setValueAtTime(0.08, this.audioCtx.currentTime);
+          // Exponential decay
+          gain.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + duration);
+
+          osc.connect(gain);
+          gain.connect(this.audioCtx.destination);
+
+          osc.start();
+          osc.stop(this.audioCtx.currentTime + duration);
+        } catch (e) {
+          console.error("Audio beep failed", e);
+        }
+      },
+
+      playConfirm() {
+        if (!this.enabled) return;
+        this.init();
+        try {
+          if (this.audioCtx.state === 'suspended') {
+            this.audioCtx.resume();
+          }
+          // Cash register sound: "Cha-ching!"
+          const now = this.audioCtx.currentTime;
+          
+          // First ding (low)
+          const osc1 = this.audioCtx.createOscillator();
+          const gain1 = this.audioCtx.createGain();
+          osc1.type = 'triangle';
+          osc1.frequency.setValueAtTime(587.33, now); // D5
+          gain1.gain.setValueAtTime(0.12, now);
+          gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+          osc1.connect(gain1);
+          gain1.connect(this.audioCtx.destination);
+          osc1.start();
+          osc1.stop(now + 0.15);
+
+          // Second ding (high & bright)
+          const osc2 = this.audioCtx.createOscillator();
+          const gain2 = this.audioCtx.createGain();
+          osc2.type = 'sine';
+          osc2.frequency.setValueAtTime(1174.66, now + 0.07); // D6
+          gain2.gain.setValueAtTime(0.15, now + 0.07);
+          gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+          osc2.connect(gain2);
+          gain2.connect(this.audioCtx.destination);
+          osc2.start();
+          osc2.stop(now + 0.35);
+        } catch (e) {
+          console.error("Audio confirm play failed", e);
+        }
+      }
+    };
+
+    // Currency Denominations Configuration
+    const DENOMINATIONS = [
+      { value: 10000, label: '1万円札', type: 'bill' },
+      { value: 5000, label: '5千円札', type: 'bill' },
+      { value: 2000, label: '2千円札', type: 'bill' },
+      { value: 1000, label: '千円札', type: 'bill' },
+      { value: 500, label: '500円玉', type: 'coin' },
+      { value: 100, label: '100円玉', type: 'coin' },
+      { value: 50, label: '50円玉', type: 'coin' },
+      { value: 10, label: '10円玉', type: 'coin' },
+      { value: 5, label: '5円玉', type: 'coin' },
+      { value: 1, label: '1円玉', type: 'coin' }
+    ];
+
+    // Standard Presets
+    const PRESETS = {
+      standard: {
+        10000: 0,
+        5000: 1,
+        2000: 0,
+        1000: 10,
+        500: 4,
+        100: 20,
+        50: 4,
+        10: 20,
+        5: 2,
+        1: 5
+      },
+      heavy: {
+        10000: 0,
+        5000: 3,
+        2000: 0,
+        1000: 15,
+        500: 10,
+        100: 30,
+        50: 10,
+        10: 30,
+        5: 5,
+        1: 10
+      }
+    };
+
+    // App State Configuration
+    const State = {
+      priceStr: "0",
+      receivedStr: "0",
+      activeField: "price", // "price" | "received"
+      alertThreshold: 3,
+      inventory: {
+        10000: 0,
+        5000: 5,
+        2000: 0,
+        1000: 10,
+        500: 6,
+        100: 20,
+        50: 6,
+        10: 20,
+        5: 5,
+        1: 5
+      },
+      customPreset: null,
+
+      loadFromStorage() {
+        const savedInventory = localStorage.getItem('deli_change_inventory');
+        if (savedInventory) {
+          this.inventory = JSON.parse(savedInventory);
+        } else {
+          // Fallback to loading standard preset on fresh install
+          this.inventory = { ...PRESETS.standard };
+        }
+
+        const savedThreshold = localStorage.getItem('deli_change_threshold');
+        if (savedThreshold) {
+          this.alertThreshold = parseInt(savedThreshold);
+        }
+
+        const savedPreset = localStorage.getItem('deli_change_custom_preset');
+        if (savedPreset) {
+          this.customPreset = JSON.parse(savedPreset);
+        }
+      },
+
+      saveToStorage() {
+        localStorage.setItem('deli_change_inventory', JSON.stringify(this.inventory));
+        localStorage.setItem('deli_change_threshold', this.alertThreshold.toString());
+        if (this.customPreset) {
+          localStorage.setItem('deli_change_custom_preset', JSON.stringify(this.customPreset));
+        }
+      }
+    };
+
+    // Helper functions for formatting
+    function formatCurrency(val) {
+      return `¥ ${parseInt(val).toLocaleString()}`;
+    }
+
+    // UI Updates and Core Controllers
+    const App = {
+      priceValEl: document.getElementById('priceVal'),
+      receivedValEl: document.getElementById('receivedVal'),
+      changeValEl: document.getElementById('changeVal'),
+      calcLabelEl: document.getElementById('calcLabel'),
+      breakdownGridEl: document.getElementById('breakdownGrid'),
+      errorPanelEl: document.getElementById('errorPanel'),
+      
+      displayCardEl: document.getElementById('displayCard'),
+      priceRowEl: document.getElementById('priceRow'),
+      receivedRowEl: document.getElementById('receivedRow'),
+      
+      priceModeBtn: document.getElementById('priceModeBtn'),
+      receivedModeBtn: document.getElementById('receivedModeBtn'),
+      
+      settingsDrawerEl: document.getElementById('settingsDrawer'),
+      drawerOverlayEl: document.getElementById('drawerOverlay'),
+      inventoryListEl: document.getElementById('inventoryList'),
+      alertThresholdInput: document.getElementById('alertThresholdInput'),
+
+      init() {
+        State.loadFromStorage();
+        this.setupEventListeners();
+        this.renderInventoryConfig();
+        this.alertThresholdInput.value = State.alertThreshold;
+        this.updateUI();
+      },
+
+      setupEventListeners() {
+        // Toggle Active Entry Fields
+        this.priceRowEl.addEventListener('click', () => this.setActiveField('price'));
+        this.receivedRowEl.addEventListener('click', () => this.setActiveField('received'));
+        this.priceModeBtn.addEventListener('click', () => this.setActiveField('price'));
+        this.receivedModeBtn.addEventListener('click', () => this.setActiveField('received'));
+
+        // Sound Toggle Click
+        document.getElementById('soundToggle').addEventListener('click', () => AudioController.toggle());
+
+        // Keyboard Button Listeners
+        document.querySelectorAll('.key-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const key = btn.getAttribute('data-key');
+            this.handleKeyPress(key);
+            this.triggerButtonAnimation(btn);
+          });
+        });
+
+        // Action Keys
+        document.getElementById('exactBtn').addEventListener('click', () => {
+          AudioController.beep(400, 0.08);
+          this.copyExactAmount();
+        });
+
+        document.getElementById('confirmBtn').addEventListener('click', () => {
+          this.executeTransaction();
+        });
+
+        // Settings Drawer Management
+        document.getElementById('openSettings').addEventListener('click', () => this.openSettings());
+        document.getElementById('closeSettings').addEventListener('click', () => this.closeSettings());
+        this.drawerOverlayEl.addEventListener('click', () => this.closeSettings());
+
+        // Warning Popover management
+        const warningToggle = document.getElementById('warningToggle');
+        const warningPopover = document.getElementById('warningPopover');
+        const closeWarningPopover = document.getElementById('closeWarningPopover');
+
+        warningToggle.addEventListener('click', (e) => {
+          e.stopPropagation();
+          AudioController.beep(500, 0.05);
+          warningPopover.classList.toggle('open');
+        });
+
+        closeWarningPopover.addEventListener('click', (e) => {
+          e.stopPropagation();
+          warningPopover.classList.remove('open');
+          AudioController.beep(400, 0.05);
+        });
+
+        document.addEventListener('click', (e) => {
+          if (!warningPopover.contains(e.target) && e.target !== warningToggle) {
+            warningPopover.classList.remove('open');
+          }
+        });
+
+        // Preset Refills Load
+        document.getElementById('presetLoadStandard').addEventListener('click', () => this.loadPreset('standard'));
+        document.getElementById('presetLoadHeavy').addEventListener('click', () => this.loadPreset('heavy'));
+        document.getElementById('savePresetConfig').addEventListener('click', () => this.saveCustomPreset());
+
+        // Threshold Listener
+        this.alertThresholdInput.addEventListener('change', (e) => {
+          State.alertThreshold = Math.max(0, parseInt(e.target.value) || 0);
+          State.saveToStorage();
+          this.checkInventoryAlerts();
+        });
+
+        // Swipe Gestures Logic Setup
+        this.initSwipeGestures();
+      },
+
+      // Visual touch animations for native feel
+      triggerButtonAnimation(btn) {
+        // Play quick vibration feedback if device supports it
+        if (window.navigator && window.navigator.vibrate) {
+          window.navigator.vibrate(30);
+        }
+      },
+
+      setActiveField(field) {
+        State.activeField = field;
+        
+        // Update styling
+        this.displayCardEl.className = `display-card active-${field}`;
+        this.priceRowEl.className = `display-row price ${field === 'price' ? 'active' : ''}`;
+        this.receivedRowEl.className = `display-row received ${field === 'received' ? 'active' : ''}`;
+        
+        this.priceModeBtn.className = `mode-btn price ${field === 'price' ? 'active' : ''}`;
+        this.receivedModeBtn.className = `mode-btn received ${field === 'received' ? 'active' : ''}`;
+        
+        AudioController.beep(480, 0.04);
+      },
+
+      handleKeyPress(key) {
+        let currentVal = State.activeField === 'price' ? State.priceStr : State.receivedStr;
+
+        if (key >= '0' && key <= '9' || key === '00') {
+          if (currentVal === '0') {
+            if (key !== '0' && key !== '00') {
+              currentVal = key;
+            }
+          } else {
+            currentVal += key;
+          }
+          AudioController.beep(650, 0.05);
+        } else if (key === 'C') {
+          currentVal = '0';
+          AudioController.beep(300, 0.08);
+        } else if (key === 'backspace') {
+          currentVal = currentVal.slice(0, -1);
+          if (currentVal === '') currentVal = '0';
+          AudioController.beep(350, 0.06);
+        } else if (key.startsWith('+')) {
+          const addValue = parseInt(key.slice(1));
+          let parsedVal = parseInt(currentVal) || 0;
+          parsedVal += addValue;
+          currentVal = parsedVal.toString();
+          AudioController.beep(800, 0.06);
+        }
+
+        // Limit inputs to 7 digits (up to 9,999,999 yen) to prevent overflow
+        if (currentVal.length > 7) {
+          currentVal = currentVal.substring(0, 7);
+        }
+
+        if (State.activeField === 'price') {
+          State.priceStr = currentVal;
+        } else {
+          State.receivedStr = currentVal;
+        }
+
+        this.updateUI();
+      },
+
+      copyExactAmount() {
+        State.receivedStr = State.priceStr;
+        this.setActiveField('received'); // switch to received to let them confirm
+        this.updateUI();
+      },
+
+      // Swipe Gestures Detection
+      initSwipeGestures() {
+        let touchstartX = 0;
+        let touchstartY = 0;
+        let touchendX = 0;
+        let touchendY = 0;
+        
+        const card = this.displayCardEl;
+        const backspaceHint = document.getElementById('backspaceHint');
+        const clearHint = document.getElementById('clearHint');
+
+        card.addEventListener('touchstart', (e) => {
+          touchstartX = e.changedTouches[0].screenX;
+          touchstartY = e.changedTouches[0].screenY;
+        }, { passive: true });
+
+        card.addEventListener('touchend', (e) => {
+          touchendX = e.changedTouches[0].screenX;
+          touchendY = e.changedTouches[0].screenY;
+          handleGesture();
+        }, { passive: true });
+
+        const handleGesture = () => {
+          const deltaX = touchendX - touchstartX;
+          const deltaY = touchendY - touchstartY;
+          
+          // Verify it is primarily a horizontal swipe
+          if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 60) {
+            if (deltaX < 0) {
+              // Swiped Left: Backspace
+              backspaceHint.style.opacity = 1;
+              this.handleKeyPress('backspace');
+              setTimeout(() => { backspaceHint.style.opacity = 0; }, 250);
+            } else {
+              // Swiped Right: Clear
+              clearHint.style.opacity = 1;
+              this.handleKeyPress('C');
+              setTimeout(() => { clearHint.style.opacity = 0; }, 250);
+            }
+          }
+        };
+      },
+
+      // Smart Inventory-Aware change solver
+      solveChange(changeVal) {
+        if (changeVal <= 0) return { breakdown: {}, possible: true };
+        
+        let remaining = changeVal;
+        const breakdown = {};
+        const tempInventory = { ...State.inventory };
+
+        for (let denomConfig of DENOMINATIONS) {
+          const denomVal = denomConfig.value;
+          if (remaining >= denomVal) {
+            const availableCount = tempInventory[denomVal] || 0;
+            const neededCount = Math.floor(remaining / denomVal);
+            const actualUsed = Math.min(neededCount, availableCount);
+            
+            if (actualUsed > 0) {
+              breakdown[denomVal] = actualUsed;
+              remaining -= denomVal * actualUsed;
+            }
+          }
+        }
+
+        return {
+          breakdown: breakdown,
+          possible: remaining === 0,
+          remainingUnresolved: remaining
+        };
+      },
+
+      updateUI() {
+        const price = parseInt(State.priceStr) || 0;
+        const received = parseInt(State.receivedStr) || 0;
+
+        // Render current inputs
+        this.priceValEl.textContent = formatCurrency(price);
+        this.receivedValEl.textContent = formatCurrency(received);
+
+        // Clear breakdown & error initially
+        this.breakdownGridEl.innerHTML = '';
+        this.errorPanelEl.style.display = 'none';
+
+        if (price === 0 && received === 0) {
+          // Idle state
+          this.changeValEl.textContent = "¥ 0";
+          this.changeValEl.className = "change-value";
+          this.calcLabelEl.textContent = "お釣り";
+          return;
+        }
+
+        const delta = received - price;
+
+        if (delta < 0) {
+          // Insufficient received cash
+          this.changeValEl.textContent = formatCurrency(Math.abs(delta));
+          this.changeValEl.className = "change-value insufficient";
+          this.calcLabelEl.textContent = "お預かり不足";
+          
+          this.errorPanelEl.textContent = `あと ${formatCurrency(Math.abs(delta))} の支払いが必要です`;
+          this.errorPanelEl.style.display = 'block';
+        } else {
+          // Change calculation
+          this.calcLabelEl.textContent = "お釣り";
+          
+          const changeResult = this.solveChange(delta);
+          
+          if (!changeResult.possible) {
+            this.changeValEl.textContent = formatCurrency(delta);
+            this.changeValEl.className = "change-value shortage";
+            
+            // Show custom error warning about insufficient stock
+            this.errorPanelEl.innerHTML = `⚠️ 釣銭在庫が不足しています！<br>残高不足でお釣り ${formatCurrency(delta)} が作れません。`;
+            this.errorPanelEl.style.display = 'block';
+          } else {
+            this.changeValEl.textContent = formatCurrency(delta);
+            this.changeValEl.className = "change-value";
+
+            // Render coins/bills breakdown badges
+            let renderHtml = '';
+            for (let denomVal of Object.keys(changeResult.breakdown).sort((a,b) => b-a)) {
+              const count = changeResult.breakdown[denomVal];
+              const conf = DENOMINATIONS.find(d => d.value === parseInt(denomVal));
+              const typeClass = conf.type; // "bill" or "coin"
+              const denomText = denomVal >= 1000 ? `${denomVal / 1000}千円` : `${denomVal}円`;
+              const formattedText = denomVal === '10000' ? '1万円' : denomVal === '5000' ? '5千円' : denomText;
+
+              renderHtml += `
+                <div class="denom-badge ${typeClass}">
+                  <span class="denom-name">${formattedText}</span>
+                  <span class="denom-count">${count}<span>枚</span></span>
+                </div>
+              `;
+            }
+            this.breakdownGridEl.innerHTML = renderHtml;
+          }
+        }
+
+        // Periodically refresh notifications
+        this.checkInventoryAlerts();
+      },
+
+      // Complete Transaction & Deduct Inventory Counts
+      executeTransaction() {
+        const price = parseInt(State.priceStr) || 0;
+        const received = parseInt(State.receivedStr) || 0;
+        
+        if (price === 0) {
+          AudioController.beep(250, 0.15);
+          alert("商品代金を入力してください。");
+          return;
+        }
+
+        const delta = received - price;
+        if (delta < 0) {
+          AudioController.beep(250, 0.15);
+          alert("お預かり金が不足しています。");
+          return;
+        }
+
+        // Run calculation again to deduct
+        const result = this.solveChange(delta);
+        if (!result.possible) {
+          AudioController.beep(250, 0.2);
+          alert("釣銭在庫が不足しています！設定画面からお釣り在庫を補充してください。");
+          return;
+        }
+
+        // Deduct bills/coins from stock
+        for (let denomVal of Object.keys(result.breakdown)) {
+          State.inventory[denomVal] -= result.breakdown[denomVal];
+        }
+
+        // Play chime!
+        AudioController.playConfirm();
+        
+        // Save inventory to storage
+        State.saveToStorage();
+        
+        // Reset calculations
+        State.priceStr = "0";
+        State.receivedStr = "0";
+        this.setActiveField('price');
+        
+        // Reload settings page config panel
+        this.renderInventoryConfig();
+        this.updateUI();
+
+        // Visual flash overlay animation on transaction success
+        const flash = document.createElement('div');
+        flash.style.position = 'absolute';
+        flash.style.top = '0';
+        flash.style.left = '0';
+        flash.style.width = '100%';
+        flash.style.height = '100%';
+        flash.style.background = 'rgba(16, 185, 129, 0.15)';
+        flash.style.zIndex = '999';
+        flash.style.pointerEvents = 'none';
+        flash.style.transition = 'opacity 0.4s';
+        document.body.appendChild(flash);
+        setTimeout(() => { flash.style.opacity = 0; }, 50);
+        setTimeout(() => { flash.remove(); }, 500);
+      },
+
+      // Warning alerts for low stocks (excluding 10000, 5000, 2000 yen)
+      checkInventoryAlerts() {
+        const warningPopoverContent = document.getElementById('warningPopoverContent');
+        const warningBadge = document.getElementById('warningBadge');
+        const warningToggle = document.getElementById('warningToggle');
+        
+        let alertsHtml = '';
+        let warningCount = 0;
+        
+        const ignoreList = [10000, 5000, 2000];
+        
+        for (let denomConfig of DENOMINATIONS) {
+          const val = denomConfig.value;
+          if (ignoreList.includes(val)) continue;
+          
+          const count = State.inventory[val] || 0;
+          
+          if (count <= State.alertThreshold) {
+            warningCount++;
+            const isCritical = count === 0;
+            const alertText = count === 0 
+              ? `${denomConfig.label}が完全に不足 (0枚)` 
+              : `${denomConfig.label}残りわずか (残り ${count}枚)`;
+            
+            alertsHtml += `
+              <div style="font-size: 0.8rem; font-weight: 600; color: ${isCritical ? 'var(--accent-red)' : 'var(--accent-amber)'}; padding: 6px 8px; background: rgba(255,255,255,0.02); border: 1px solid ${isCritical ? 'rgba(239,68,68,0.2)' : 'rgba(245,158,11,0.2)'}; border-radius: 6px; display: flex; align-items: center; gap: 6px;">
+                <span>⚠️</span>
+                <span>${alertText}</span>
+              </div>
+            `;
+          }
+        }
+
+        if (warningCount > 0) {
+          warningBadge.style.display = 'block';
+          warningToggle.style.color = 'var(--accent-amber)';
+          warningPopoverContent.innerHTML = alertsHtml;
+        } else {
+          warningBadge.style.display = 'none';
+          warningToggle.style.color = 'var(--text-secondary)';
+          warningPopoverContent.innerHTML = `
+            <div style="font-size: 0.8rem; color: var(--text-secondary); text-align: center; padding: 12px 0;">
+              現在、釣銭不足の警告はありません。
+            </div>
+          `;
+        }
+      },
+
+      // Open settings panel
+      openSettings() {
+        AudioController.beep(550, 0.05);
+        this.renderInventoryConfig();
+        this.drawerOverlayEl.classList.add('open');
+        this.settingsDrawerEl.classList.add('open');
+      },
+
+      // Close settings panel
+      closeSettings() {
+        AudioController.beep(400, 0.05);
+        this.drawerOverlayEl.classList.remove('open');
+        this.settingsDrawerEl.classList.remove('open');
+        this.updateUI();
+      },
+
+      // Render manual inventory adjustment list inside config drawer
+      renderInventoryConfig() {
+        let html = '';
+        
+        for (let denom of DENOMINATIONS) {
+          const count = State.inventory[denom.value] || 0;
+          const label = denom.label;
+          const typeClass = denom.type;
+
+          html += `
+            <div class="inventory-row">
+              <span class="inventory-name ${typeClass}">
+                ${typeClass === 'bill' ? '💵' : '🪙'} ${label}
+              </span>
+              <div class="inventory-controls">
+                <button class="control-btn" onclick="App.adjustInventory(${denom.value}, -1)">-</button>
+                <span class="inventory-val" id="inv-${denom.value}">${count}</span>
+                <button class="control-btn" onclick="App.adjustInventory(${denom.value}, 1)">+</button>
+              </div>
+            </div>
+          `;
+        }
+        
+        this.inventoryListEl.innerHTML = html;
+      },
+
+      // Dynamic adjustment controls inside configuration view
+      adjustInventory(denom, delta) {
+        let count = State.inventory[denom] || 0;
+        count = Math.max(0, count + delta);
+        State.inventory[denom] = count;
+        
+        // Update specific text element instantly
+        document.getElementById(`inv-${denom}`).textContent = count;
+        
+        // Save & trigger checks
+        State.saveToStorage();
+        AudioController.beep(700, 0.03);
+        this.checkInventoryAlerts();
+      },
+
+      // Reload preset Refills
+      loadPreset(presetName) {
+        let presetData = null;
+        if (presetName === 'standard') {
+          presetData = PRESETS.standard;
+        } else if (presetName === 'heavy') {
+          presetData = PRESETS.heavy;
+        }
+
+        if (presetData) {
+          State.inventory = { ...presetData };
+          State.saveToStorage();
+          this.renderInventoryConfig();
+          AudioController.beep(900, 0.12, 'triangle');
+          this.checkInventoryAlerts();
+          
+          // Small highlight feedback
+          const configList = this.inventoryListEl;
+          configList.style.opacity = 0.5;
+          setTimeout(() => { configList.style.opacity = 1; }, 150);
+        }
+      },
+
+      // Save custom configuration as preset replacement
+      saveCustomPreset() {
+        State.customPreset = { ...State.inventory };
+        State.saveToStorage();
+        AudioController.beep(950, 0.15);
+        alert("現在の枚数を「いつものセット」として保存しました。次回以降は標準の初期設定として復元されます。");
+      }
+    };
+
+    // Bootstrap app
+    window.addEventListener('DOMContentLoaded', () => {
+      App.init();
+    });
+  </script>
+</body>
+</html>

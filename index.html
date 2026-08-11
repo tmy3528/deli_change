@@ -300,30 +300,50 @@
 
     /* Change Result Panel */
     .result-section {
-      border-top: 1px dashed var(--card-border);
-      padding-top: 12px;
-      margin-top: 12px;
+      background-color: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 12px;
+      margin-top: 10px;
       display: flex;
       flex-direction: column;
-      flex-grow: 1;
       justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .result-section.success {
+      background-color: rgba(16, 185, 129, 0.06);
+      border-color: rgba(16, 185, 129, 0.25);
+      box-shadow: inset 0 0 12px rgba(16, 185, 129, 0.05);
+    }
+
+    .result-section.insufficient {
+      background-color: rgba(239, 68, 68, 0.06);
+      border-color: rgba(239, 68, 68, 0.25);
+      box-shadow: inset 0 0 12px rgba(239, 68, 68, 0.05);
+    }
+
+    .result-section.shortage {
+      background-color: rgba(245, 158, 11, 0.06);
+      border-color: rgba(245, 158, 11, 0.25);
+      box-shadow: inset 0 0 12px rgba(245, 158, 11, 0.05);
     }
 
     .change-header {
       display: flex;
       justify-content: space-between;
-      align-items: baseline;
-      margin-bottom: 8px;
+      align-items: center;
+      margin-bottom: 6px;
     }
 
     .change-label {
-      font-size: 1rem;
+      font-size: 1.1rem;
       color: var(--text-secondary);
-      font-weight: 600;
+      font-weight: 700;
     }
 
     .change-value {
-      font-size: 2.2rem;
+      font-size: 2.6rem;
       font-weight: 700;
       color: var(--accent-green);
       text-shadow: 0 0 10px var(--accent-green-glow);
@@ -587,10 +607,21 @@
       display: flex;
       flex-direction: column;
       box-shadow: 0 -8px 32px rgba(0,0,0,0.8);
+      visibility: hidden;
     }
 
     .drawer.open {
       transform: translateY(0);
+      visibility: visible;
+    }
+
+    .key-btn.action[data-key="backspace"] {
+      font-size: 1.6rem;
+      color: var(--accent-red);
+    }
+    .key-btn.action[data-key="C"] {
+      font-size: 1.4rem;
+      color: var(--accent-amber);
     }
 
     .drawer-header {
@@ -832,6 +863,10 @@
       </div>
     </div>
     <div class="header-actions">
+      <!-- History Toggle Button -->
+      <button class="icon-btn" id="openHistory" title="履歴の確認">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+      </button>
       <!-- Warning Toggle Button -->
       <button class="icon-btn" id="warningToggle" title="警告の確認" style="position: relative;">
         <!-- Alert Icon -->
@@ -857,6 +892,27 @@
     </div>
     <div id="warningPopoverContent" style="display: flex; flex-direction: column; gap: 8px;">
       <!-- Populated dynamically -->
+    </div>
+  </div>
+
+  <!-- History Drawer Panel -->
+  <div class="drawer-overlay" id="historyOverlay"></div>
+  <div class="drawer" id="historyDrawer">
+    <div class="drawer-header">
+      <div class="drawer-title">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        お会計の履歴
+      </div>
+      <button class="drawer-close" id="closeHistory">&times;</button>
+    </div>
+    <div class="drawer-content">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <span class="section-title" style="margin-bottom: 0;">過去の会計 (最大50件)</span>
+        <button id="clearHistoryBtn" style="background: none; border: 1px solid var(--accent-red); color: var(--accent-red); font-size: 0.75rem; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-weight: 700;">履歴をクリア</button>
+      </div>
+      <div id="historyListContent" style="display: flex; flex-direction: column; gap: 8px;">
+        <!-- Populated dynamically -->
+      </div>
     </div>
   </div>
 
@@ -961,8 +1017,8 @@
       <div class="preset-panel">
         <div class="section-title">いつものセットをロード (プリセット)</div>
         <div class="preset-buttons">
-          <button class="preset-btn" id="presetLoadStandard">昼勤 (千円x10, 百円x20等)</button>
-          <button class="preset-btn" id="presetLoadHeavy">夜勤 (千円x15, 百円x30等)</button>
+          <button class="preset-btn" id="presetLoadStandard">昼勤</button>
+          <button class="preset-btn" id="presetLoadHeavy">夜勤</button>
         </div>
       </div>
 
@@ -1146,6 +1202,7 @@
         1: 5
       },
       customPreset: null,
+      history: [],
 
       loadFromStorage() {
         const savedInventory = localStorage.getItem('deli_change_inventory');
@@ -1165,6 +1222,11 @@
         if (savedPreset) {
           this.customPreset = JSON.parse(savedPreset);
         }
+
+        const savedHistory = localStorage.getItem('deli_change_history');
+        if (savedHistory) {
+          this.history = JSON.parse(savedHistory);
+        }
       },
 
       saveToStorage() {
@@ -1173,6 +1235,7 @@
         if (this.customPreset) {
           localStorage.setItem('deli_change_custom_preset', JSON.stringify(this.customPreset));
         }
+        localStorage.setItem('deli_change_history', JSON.stringify(this.history));
       }
     };
 
@@ -1201,6 +1264,10 @@
       drawerOverlayEl: document.getElementById('drawerOverlay'),
       inventoryListEl: document.getElementById('inventoryList'),
       alertThresholdInput: document.getElementById('alertThresholdInput'),
+
+      historyDrawerEl: document.getElementById('historyDrawer'),
+      historyOverlayEl: document.getElementById('historyOverlay'),
+      historyListContentEl: document.getElementById('historyListContent'),
 
       init() {
         State.loadFromStorage();
@@ -1243,6 +1310,12 @@
         document.getElementById('openSettings').addEventListener('click', () => this.openSettings());
         document.getElementById('closeSettings').addEventListener('click', () => this.closeSettings());
         this.drawerOverlayEl.addEventListener('click', () => this.closeSettings());
+
+        // History Drawer Management
+        document.getElementById('openHistory').addEventListener('click', () => this.openHistory());
+        document.getElementById('closeHistory').addEventListener('click', () => this.closeHistory());
+        this.historyOverlayEl.addEventListener('click', () => this.closeHistory());
+        document.getElementById('clearHistoryBtn').addEventListener('click', () => this.clearHistory());
 
         // Warning Popover management
         const warningToggle = document.getElementById('warningToggle');
@@ -1363,13 +1436,13 @@
         const clearHint = document.getElementById('clearHint');
 
         document.addEventListener('touchstart', (e) => {
-          if (this.settingsDrawerEl.classList.contains('open')) return;
+          if (this.settingsDrawerEl.classList.contains('open') || this.historyDrawerEl.classList.contains('open')) return;
           touchstartX = e.changedTouches[0].screenX;
           touchstartY = e.changedTouches[0].screenY;
         }, { passive: true });
 
         document.addEventListener('touchend', (e) => {
-          if (this.settingsDrawerEl.classList.contains('open')) return;
+          if (this.settingsDrawerEl.classList.contains('open') || this.historyDrawerEl.classList.contains('open')) return;
           touchendX = e.changedTouches[0].screenX;
           touchendY = e.changedTouches[0].screenY;
           handleGesture();
@@ -1428,6 +1501,7 @@
       updateUI() {
         const price = parseInt(State.priceStr) || 0;
         const received = parseInt(State.receivedStr) || 0;
+        const resultSection = document.querySelector('.result-section');
 
         // Render current inputs
         this.priceValEl.textContent = formatCurrency(price);
@@ -1442,6 +1516,7 @@
           this.changeValEl.textContent = "¥ 0";
           this.changeValEl.className = "change-value";
           this.calcLabelEl.textContent = "お釣り";
+          resultSection.className = "result-section";
           return;
         }
 
@@ -1452,6 +1527,7 @@
           this.changeValEl.textContent = formatCurrency(Math.abs(delta));
           this.changeValEl.className = "change-value insufficient";
           this.calcLabelEl.textContent = "お預かり不足";
+          resultSection.className = "result-section insufficient";
           
           this.errorPanelEl.textContent = `あと ${formatCurrency(Math.abs(delta))} の支払いが必要です`;
           this.errorPanelEl.style.display = 'block';
@@ -1464,6 +1540,7 @@
           if (!changeResult.possible) {
             this.changeValEl.textContent = formatCurrency(delta);
             this.changeValEl.className = "change-value shortage";
+            resultSection.className = "result-section shortage";
             
             // Show custom error warning about insufficient stock
             this.errorPanelEl.innerHTML = `⚠️ 釣銭在庫が不足しています！<br>残高不足でお釣り ${formatCurrency(delta)} が作れません。`;
@@ -1471,6 +1548,7 @@
           } else {
             this.changeValEl.textContent = formatCurrency(delta);
             this.changeValEl.className = "change-value";
+            resultSection.className = "result-section success";
 
             // Render coins/bills breakdown badges
             let renderHtml = '';
@@ -1527,10 +1605,25 @@
           State.inventory[denomVal] -= result.breakdown[denomVal];
         }
 
+        // Record to history
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+        const dateStr = `${now.getMonth() + 1}/${now.getDate()}`;
+        const historyItem = {
+          time: `${dateStr} ${timeStr}`,
+          price: price,
+          received: received,
+          change: delta
+        };
+        State.history.unshift(historyItem);
+        if (State.history.length > 50) {
+          State.history.pop();
+        }
+
         // Play chime!
         AudioController.playConfirm();
         
-        // Save inventory to storage
+        // Save inventory & history to storage
         State.saveToStorage();
         
         // Reset calculations
@@ -1707,6 +1800,56 @@
         State.saveToStorage();
         AudioController.beep(950, 0.15);
         alert("現在の枚数を「いつものセット」として保存しました。次回以降は標準の初期設定として復元されます。");
+      },
+
+      // History management methods
+      renderHistory() {
+        let html = '';
+        if (State.history.length === 0) {
+          html = `
+            <div style="font-size: 0.85rem; color: var(--text-secondary); text-align: center; padding: 24px 0;">
+              お会計の履歴はありません。
+            </div>
+          `;
+        } else {
+          for (let item of State.history) {
+            html += `
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background-color: rgba(255,255,255,0.02); border: 1px solid var(--card-border); border-radius: 10px;">
+                <div style="display: flex; flex-direction: column; gap: 2px;">
+                  <span style="font-size: 0.75rem; color: var(--text-secondary);">${item.time}</span>
+                  <span style="font-size: 0.85rem; font-weight: 600;">代金: ${formatCurrency(item.price)}</span>
+                </div>
+                <div style="text-align: right; display: flex; flex-direction: column; gap: 2px;">
+                  <span style="font-size: 0.75rem; color: var(--text-secondary);">預り: ${formatCurrency(item.received)}</span>
+                  <span style="font-size: 0.95rem; font-weight: 700; color: var(--accent-green);">お釣り: ${formatCurrency(item.change)}</span>
+                </div>
+              </div>
+            `;
+          }
+        }
+        this.historyListContentEl.innerHTML = html;
+      },
+
+      openHistory() {
+        AudioController.beep(550, 0.05);
+        this.renderHistory();
+        this.historyOverlayEl.classList.add('open');
+        this.historyDrawerEl.classList.add('open');
+      },
+
+      closeHistory() {
+        AudioController.beep(400, 0.05);
+        this.historyOverlayEl.classList.remove('open');
+        this.historyDrawerEl.classList.remove('open');
+      },
+
+      clearHistory() {
+        if (confirm("お会計の履歴をすべてクリアしますか？")) {
+          State.history = [];
+          State.saveToStorage();
+          this.renderHistory();
+          AudioController.beep(300, 0.1);
+        }
       }
     };
 

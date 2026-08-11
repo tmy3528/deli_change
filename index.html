@@ -776,6 +776,32 @@
       font-weight: 700;
     }
 
+    /* Hide number input spinners */
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { 
+      -webkit-appearance: none; 
+      margin: 0; 
+    }
+
+    .inventory-val-input {
+      width: 55px;
+      background: #1e1e24;
+      border: 1px solid #2e2e38;
+      color: var(--text-primary);
+      text-align: center;
+      font-weight: 700;
+      border-radius: 8px;
+      padding: 6px 4px;
+      font-size: 1.1rem;
+      transition: border-color 0.2s;
+      -moz-appearance: textfield;
+    }
+
+    .inventory-val-input:focus {
+      outline: none;
+      border-color: var(--accent-green);
+    }
+
     /* Ripple active effect simulation */
     .ripple {
       position: absolute;
@@ -901,12 +927,12 @@
       <button class="key-btn" data-key="1">1</button>
       <button class="key-btn" data-key="2">2</button>
       <button class="key-btn" data-key="3">3</button>
-      <button class="key-btn accent-blue" data-key="+1000">+1000</button>
+      <button class="key-btn accent-blue" data-key="+100">+100</button>
 
       <button class="key-btn" data-key="0">0</button>
       <button class="key-btn" data-key="00">00</button>
-      <button class="key-btn accent-blue" data-key="+5000">+5000</button>
-      <button class="key-btn accent-blue" data-key="+10000">+10000</button>
+      <button class="key-btn accent-blue" data-key="+500">+500</button>
+      <button class="key-btn accent-blue" data-key="+1000">+1000</button>
     </div>
 
     <!-- Confirm / Exact Payment Actions -->
@@ -1326,23 +1352,24 @@
         this.updateUI();
       },
 
-      // Swipe Gestures Detection
+      // Swipe Gestures Detection (Works anywhere on screen when settings drawer is closed)
       initSwipeGestures() {
         let touchstartX = 0;
         let touchstartY = 0;
         let touchendX = 0;
         let touchendY = 0;
         
-        const card = this.displayCardEl;
         const backspaceHint = document.getElementById('backspaceHint');
         const clearHint = document.getElementById('clearHint');
 
-        card.addEventListener('touchstart', (e) => {
+        document.addEventListener('touchstart', (e) => {
+          if (this.settingsDrawerEl.classList.contains('open')) return;
           touchstartX = e.changedTouches[0].screenX;
           touchstartY = e.changedTouches[0].screenY;
         }, { passive: true });
 
-        card.addEventListener('touchend', (e) => {
+        document.addEventListener('touchend', (e) => {
+          if (this.settingsDrawerEl.classList.contains('open')) return;
           touchendX = e.changedTouches[0].screenX;
           touchendY = e.changedTouches[0].screenY;
           handleGesture();
@@ -1611,7 +1638,7 @@
               </span>
               <div class="inventory-controls">
                 <button class="control-btn" onclick="App.adjustInventory(${denom.value}, -1)">-</button>
-                <span class="inventory-val" id="inv-${denom.value}">${count}</span>
+                <input type="number" class="inventory-val-input" id="inv-${denom.value}" value="${count}" min="0" oninput="App.setInventory(${denom.value}, this.value)">
                 <button class="control-btn" onclick="App.adjustInventory(${denom.value}, 1)">+</button>
               </div>
             </div>
@@ -1621,14 +1648,29 @@
         this.inventoryListEl.innerHTML = html;
       },
 
+      // Set inventory count directly from typing
+      setInventory(denom, val) {
+        let count = parseInt(val);
+        if (isNaN(count)) count = 0;
+        count = Math.max(0, count);
+        State.inventory[denom] = count;
+        
+        // Save & trigger checks
+        State.saveToStorage();
+        this.checkInventoryAlerts();
+      },
+
       // Dynamic adjustment controls inside configuration view
       adjustInventory(denom, delta) {
         let count = State.inventory[denom] || 0;
         count = Math.max(0, count + delta);
         State.inventory[denom] = count;
         
-        // Update specific text element instantly
-        document.getElementById(`inv-${denom}`).textContent = count;
+        // Update input element
+        const inputEl = document.getElementById(`inv-${denom}`);
+        if (inputEl) {
+          inputEl.value = count;
+        }
         
         // Save & trigger checks
         State.saveToStorage();

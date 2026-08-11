@@ -1873,6 +1873,17 @@
         event.preventDefault();
       });
 
+      // Fix keyboard layout shift on iOS blur (dismissing keyboard)
+      document.addEventListener('focusout', (e) => {
+        if (e.target.tagName === 'INPUT') {
+          setTimeout(() => {
+            window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+            document.body.scrollTop = 0;
+            document.documentElement.scrollTop = 0;
+          }, 80);
+        }
+      });
+
       App.init();
     });
   </script>

@@ -188,9 +188,9 @@
     .display-card {
       background-color: var(--card-bg);
       border: 1px solid var(--card-border);
-      margin: 8px 16px 12px 16px;
+      margin: 6px 12px;
       border-radius: 16px;
-      padding: 16px;
+      padding: 12px;
       flex-grow: 1;
       display: flex;
       flex-direction: column;
@@ -251,14 +251,14 @@
     .input-section {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 8px;
     }
 
     .display-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 10px 12px;
+      padding: 8px 12px;
       border-radius: 10px;
       background-color: rgba(255, 255, 255, 0.02);
       border: 1px solid transparent;
@@ -430,10 +430,10 @@
     .keypad-container {
       background-color: #0e0f11;
       border-top: 1px solid var(--card-border);
-      padding: 8px 12px 24px 12px;
+      padding: 6px 12px 12px 12px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 6px;
     }
 
     .input-mode-selector {
@@ -474,7 +474,7 @@
     .keypad-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 8px;
+      gap: 6px;
     }
 
     .key-btn {
@@ -482,9 +482,9 @@
       border: 1px solid #2e2e38;
       border-radius: 12px;
       color: var(--text-primary);
-      font-size: 1.6rem;
+      font-size: 1.5rem;
       font-weight: 600;
-      height: 60px;
+      height: 50px;
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -525,8 +525,8 @@
     .bottom-actions {
       display: grid;
       grid-template-columns: 1fr 2fr;
-      gap: 8px;
-      margin-top: 4px;
+      gap: 6px;
+      margin-top: 2px;
     }
 
     .exact-btn {
@@ -537,7 +537,7 @@
       font-weight: 700;
       border-radius: 12px;
       cursor: pointer;
-      height: 62px;
+      height: 52px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -557,7 +557,7 @@
       font-weight: 700;
       border-radius: 12px;
       cursor: pointer;
-      height: 62px;
+      height: 52px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -857,10 +857,6 @@
   <header>
     <div class="brand">
       <div class="brand-logo">⚡ DELI<span>CHANGE</span></div>
-      <div class="status-badges">
-        <div class="badge badge-offline">OFFLINE</div>
-        <div class="badge badge-active"><span class="dot"></span>ACTIVE</div>
-      </div>
     </div>
     <div class="header-actions">
       <!-- History Toggle Button -->
@@ -1855,6 +1851,28 @@
 
     // Bootstrap app
     window.addEventListener('DOMContentLoaded', () => {
+      // Disable pinch-to-zoom (multi-touch gesture)
+      document.addEventListener('touchstart', function (event) {
+        if (event.touches.length > 1) {
+          event.preventDefault();
+        }
+      }, { passive: false });
+
+      // Disable double-tap-to-zoom
+      let lastTouchEnd = 0;
+      document.addEventListener('touchend', function (event) {
+        const now = (new Date()).getTime();
+        if (now - lastTouchEnd <= 300) {
+          event.preventDefault();
+        }
+        lastTouchEnd = now;
+      }, { passive: false });
+
+      // Disable gesturestart (Safari zoom gesture)
+      document.addEventListener('gesturestart', function (event) {
+        event.preventDefault();
+      });
+
       App.init();
     });
   </script>

@@ -1640,6 +1640,25 @@
           return;
         }
 
+        // Break down received cash to add to stock
+        let receivedRemaining = received;
+        const receivedBreakdown = {};
+        for (let denomConfig of DENOMINATIONS) {
+          const denomVal = denomConfig.value;
+          if (receivedRemaining >= denomVal) {
+            const count = Math.floor(receivedRemaining / denomVal);
+            if (count > 0) {
+              receivedBreakdown[denomVal] = count;
+              receivedRemaining -= denomVal * count;
+            }
+          }
+        }
+
+        // Add received cash to stock
+        for (let denomVal of Object.keys(receivedBreakdown)) {
+          State.inventory[denomVal] = (State.inventory[denomVal] || 0) + receivedBreakdown[denomVal];
+        }
+
         // Deduct bills/coins from stock
         for (let denomVal of Object.keys(result.breakdown)) {
           State.inventory[denomVal] -= result.breakdown[denomVal];

@@ -665,15 +665,6 @@
       border-radius: 12px;
     }
 
-    .section-title {
-      font-size: 0.85rem;
-      font-weight: 700;
-      color: var(--text-secondary);
-      margin-bottom: 8px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
     .preset-buttons {
       display: flex;
       gap: 8px;
@@ -695,6 +686,23 @@
     .preset-btn:active {
       transform: scale(0.95);
       background-color: #27272a;
+    }
+
+    .settings-btn.save {
+      width: 100%;
+      background-color: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: var(--accent-green);
+      padding: 10px;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .settings-btn.save:active {
+      background-color: rgba(16, 185, 129, 0.2);
+      transform: scale(0.98);
     }
 
     .inventory-list {
@@ -1014,8 +1022,8 @@
       <div class="preset-panel">
         <div class="section-title">いつものセットをロード (プリセット)</div>
         <div class="preset-buttons">
-          <button class="preset-btn" id="presetLoadStandard">昼勤</button>
-          <button class="preset-btn" id="presetLoadHeavy">夜勤</button>
+          <button class="preset-btn" id="loadPreset1">プリセット 1</button>
+          <button class="preset-btn" id="loadPreset2">プリセット 2</button>
         </div>
       </div>
 
@@ -1038,8 +1046,8 @@
       </div>
 
       <!-- Settings bottom actions -->
-      <div class="config-footer">
-        <button class="settings-btn save" id="savePresetConfig">現在の枚数を「いつものセット」に保存</button>
+      <div class="config-footer" style="margin-top: 16px;">
+        <button class="settings-btn save" id="savePresetConfig">現在の枚数をプリセットに保存</button>
       </div>
 
     </div>
@@ -1154,7 +1162,7 @@
 
     // Standard Presets
     const PRESETS = {
-      standard: {
+      preset1: {
         10000: 0,
         5000: 1,
         2000: 0,
@@ -1166,7 +1174,7 @@
         5: 2,
         1: 5
       },
-      heavy: {
+      preset2: {
         10000: 0,
         5000: 3,
         2000: 0,
@@ -1198,7 +1206,8 @@
         5: 5,
         1: 5
       },
-      customPreset: null,
+      preset1: null,
+      preset2: null,
       history: [],
 
       loadFromStorage() {
@@ -1207,7 +1216,7 @@
           this.inventory = JSON.parse(savedInventory);
         } else {
           // Fallback to loading standard preset on fresh install
-          this.inventory = { ...PRESETS.standard };
+          this.inventory = { ...PRESETS.preset1 };
         }
 
         const savedThreshold = localStorage.getItem('deli_change_threshold');
@@ -1215,9 +1224,18 @@
           this.alertThreshold = parseInt(savedThreshold);
         }
 
-        const savedPreset = localStorage.getItem('deli_change_custom_preset');
-        if (savedPreset) {
-          this.customPreset = JSON.parse(savedPreset);
+        const savedPreset1 = localStorage.getItem('deli_change_preset1');
+        if (savedPreset1) {
+          this.preset1 = JSON.parse(savedPreset1);
+        } else {
+          this.preset1 = { ...PRESETS.preset1 };
+        }
+
+        const savedPreset2 = localStorage.getItem('deli_change_preset2');
+        if (savedPreset2) {
+          this.preset2 = JSON.parse(savedPreset2);
+        } else {
+          this.preset2 = { ...PRESETS.preset2 };
         }
 
         const savedHistory = localStorage.getItem('deli_change_history');
@@ -1229,8 +1247,11 @@
       saveToStorage() {
         localStorage.setItem('deli_change_inventory', JSON.stringify(this.inventory));
         localStorage.setItem('deli_change_threshold', this.alertThreshold.toString());
-        if (this.customPreset) {
-          localStorage.setItem('deli_change_custom_preset', JSON.stringify(this.customPreset));
+        if (this.preset1) {
+          localStorage.setItem('deli_change_preset1', JSON.stringify(this.preset1));
+        }
+        if (this.preset2) {
+          localStorage.setItem('deli_change_preset2', JSON.stringify(this.preset2));
         }
         localStorage.setItem('deli_change_history', JSON.stringify(this.history));
       }
@@ -1337,10 +1358,19 @@
           }
         });
 
-        // Preset Refills Load
-        document.getElementById('presetLoadStandard').addEventListener('click', () => this.loadPreset('standard'));
-        document.getElementById('presetLoadHeavy').addEventListener('click', () => this.loadPreset('heavy'));
-        document.getElementById('savePresetConfig').addEventListener('click', () => this.saveCustomPreset());
+        // Preset Refills Load / Save
+        document.getElementById('loadPreset1').addEventListener('click', () => this.loadPreset(1));
+        document.getElementById('loadPreset2').addEventListener('click', () => this.loadPreset(2));
+        document.getElementById('savePresetConfig').addEventListener('click', () => {
+          const choice = prompt("現在の枚数をどちらのプリセットに保存しますか？\n「1」または「2」を入力してください。", "1");
+          if (choice === '1') {
+            this.savePreset(1);
+          } else if (choice === '2') {
+            this.savePreset(2);
+          } else if (choice !== null) {
+            alert("「1」または「2」を入力してください。");
+          }
+        });
 
         // Threshold Listener
         this.alertThresholdInput.addEventListener('change', (e) => {
@@ -1782,12 +1812,12 @@
       },
 
       // Reload preset Refills
-      loadPreset(presetName) {
+      loadPreset(num) {
         let presetData = null;
-        if (presetName === 'standard') {
-          presetData = PRESETS.standard;
-        } else if (presetName === 'heavy') {
-          presetData = PRESETS.heavy;
+        if (num === 1) {
+          presetData = State.preset1 || PRESETS.preset1;
+        } else if (num === 2) {
+          presetData = State.preset2 || PRESETS.preset2;
         }
 
         if (presetData) {
@@ -1801,15 +1831,21 @@
           const configList = this.inventoryListEl;
           configList.style.opacity = 0.5;
           setTimeout(() => { configList.style.opacity = 1; }, 150);
+          
+          alert(`プリセット ${num} をロードしました。`);
         }
       },
 
-      // Save custom configuration as preset replacement
-      saveCustomPreset() {
-        State.customPreset = { ...State.inventory };
+      // Save custom configuration to preset
+      savePreset(num) {
+        if (num === 1) {
+          State.preset1 = { ...State.inventory };
+        } else if (num === 2) {
+          State.preset2 = { ...State.inventory };
+        }
         State.saveToStorage();
         AudioController.beep(950, 0.15);
-        alert("現在の枚数を「いつものセット」として保存しました。次回以降は標準の初期設定として復元されます。");
+        alert(`現在の枚数をプリセット ${num} に保存しました！`);
       },
 
       // History management methods

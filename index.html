@@ -921,6 +921,40 @@
     </div>
   </div>
 
+  <!-- Received Cash Confirmation Drawer Panel -->
+  <div class="drawer-overlay" id="receivedOverlay"></div>
+  <div class="drawer" id="receivedDrawer">
+    <div class="drawer-header">
+      <div class="drawer-title" style="display: flex; align-items: center; gap: 8px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><circle cx="12" cy="12" r="3"></circle></svg>
+        お預かり金の内訳確認
+      </div>
+      <button class="drawer-close" id="closeReceivedDrawer">&times;</button>
+    </div>
+    <div class="drawer-content" style="display: flex; flex-direction: column; gap: 12px; overflow-y: auto;">
+      <div style="background-color: rgba(255, 255, 255, 0.02); border: 1px solid var(--card-border); padding: 12px; border-radius: 12px; text-align: center;">
+        <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 4px;">入力されたお預かり総額</div>
+        <div style="font-size: 1.8rem; font-weight: 700; color: var(--accent-amber);" id="receivedModalTotal">¥ 0</div>
+      </div>
+      
+      <div class="section-title" style="margin-bottom: 2px;">受け取ったお札・硬貨の枚数</div>
+      <div id="receivedModalList" class="inventory-list" style="flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;">
+        <!-- Populated dynamically -->
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; padding: 10px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--card-border); border-radius: 8px;">
+        <span style="font-size: 0.85rem; font-weight: 600;">現在の内訳合計:</span>
+        <span style="font-size: 1.2rem; font-weight: 700;" id="receivedModalCurrentSum">¥ 0</span>
+      </div>
+
+      <div style="margin-top: 8px;">
+        <button class="confirm-btn" id="receivedModalConfirmBtn" style="width: 100%; height: 50px; justify-content: center;">
+          内訳を確定してお釣りへ
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Display Card (Gestures area) -->
   <div class="display-card active-price" id="displayCard">
     <div class="gesture-hint backspace" id="backspaceHint">← 1文字消去</div>
@@ -1150,7 +1184,6 @@
     const DENOMINATIONS = [
       { value: 10000, label: '1万円札', type: 'bill' },
       { value: 5000, label: '5千円札', type: 'bill' },
-      { value: 2000, label: '2千円札', type: 'bill' },
       { value: 1000, label: '千円札', type: 'bill' },
       { value: 500, label: '500円玉', type: 'coin' },
       { value: 100, label: '100円玉', type: 'coin' },
@@ -1165,7 +1198,6 @@
       preset1: {
         10000: 0,
         5000: 1,
-        2000: 0,
         1000: 10,
         500: 4,
         100: 20,
@@ -1177,7 +1209,6 @@
       preset2: {
         10000: 0,
         5000: 3,
-        2000: 0,
         1000: 15,
         500: 10,
         100: 30,
@@ -1197,7 +1228,6 @@
       inventory: {
         10000: 0,
         5000: 5,
-        2000: 0,
         1000: 10,
         500: 6,
         100: 20,
@@ -1287,6 +1317,9 @@
       historyOverlayEl: document.getElementById('historyOverlay'),
       historyListContentEl: document.getElementById('historyListContent'),
 
+      receivedOverlayEl: document.getElementById('receivedOverlay'),
+      receivedDrawerEl: document.getElementById('receivedDrawer'),
+
       init() {
         State.loadFromStorage();
         this.setupEventListeners();
@@ -1321,7 +1354,7 @@
         });
 
         document.getElementById('confirmBtn').addEventListener('click', () => {
-          this.executeTransaction();
+          this.openReceivedConfirm();
         });
 
         // Settings Drawer Management
@@ -1378,6 +1411,11 @@
           State.saveToStorage();
           this.checkInventoryAlerts();
         });
+
+        // Received Confirmation Modal Listeners
+        document.getElementById('closeReceivedDrawer').addEventListener('click', () => this.closeReceivedConfirm());
+        document.getElementById('receivedOverlay').addEventListener('click', () => this.closeReceivedConfirm());
+        document.getElementById('receivedModalConfirmBtn').addEventListener('click', () => this.executeTransaction());
 
         // Swipe Gestures Logic Setup
         this.initSwipeGestures();
@@ -1463,13 +1501,13 @@
         const clearHint = document.getElementById('clearHint');
 
         document.addEventListener('touchstart', (e) => {
-          if (this.settingsDrawerEl.classList.contains('open') || this.historyDrawerEl.classList.contains('open')) return;
+          if (this.settingsDrawerEl.classList.contains('open') || this.historyDrawerEl.classList.contains('open') || this.receivedDrawerEl.classList.contains('open')) return;
           touchstartX = e.changedTouches[0].screenX;
           touchstartY = e.changedTouches[0].screenY;
         }, { passive: true });
 
         document.addEventListener('touchend', (e) => {
-          if (this.settingsDrawerEl.classList.contains('open') || this.historyDrawerEl.classList.contains('open')) return;
+          if (this.settingsDrawerEl.classList.contains('open') || this.historyDrawerEl.classList.contains('open') || this.receivedDrawerEl.classList.contains('open')) return;
           touchendX = e.changedTouches[0].screenX;
           touchendY = e.changedTouches[0].screenY;
           handleGesture();
@@ -1614,6 +1652,136 @@
         this.checkInventoryAlerts();
       },
 
+      tempReceivedBreakdown: {},
+
+      openReceivedConfirm() {
+        const price = parseInt(State.priceStr) || 0;
+        const received = parseInt(State.receivedStr) || 0;
+        
+        if (price === 0) {
+          AudioController.beep(250, 0.15);
+          alert("商品代金を入力してください。");
+          return;
+        }
+
+        const delta = received - price;
+        if (delta < 0) {
+          AudioController.beep(250, 0.15);
+          alert("お預かり金が不足しています。");
+          return;
+        }
+
+        // Run change calculation first to check if change can be made
+        const changeResult = this.solveChange(delta);
+        if (!changeResult.possible) {
+          AudioController.beep(250, 0.2);
+          alert("釣銭在庫が不足しています！設定画面からお釣り在庫を補充してください。");
+          return;
+        }
+
+        // Pre-populate tempReceivedBreakdown with standard greedy breakdown of received cash
+        this.tempReceivedBreakdown = {};
+        for (let denom of DENOMINATIONS) {
+          this.tempReceivedBreakdown[denom.value] = 0;
+        }
+
+        let remaining = received;
+        for (let denom of DENOMINATIONS) {
+          const denomVal = denom.value;
+          if (remaining >= denomVal) {
+            const count = Math.floor(remaining / denomVal);
+            this.tempReceivedBreakdown[denomVal] = count;
+            remaining -= denomVal * count;
+          }
+        }
+
+        // Render Received confirmation drawer
+        this.renderReceivedModalList();
+        
+        document.getElementById('receivedModalTotal').textContent = formatCurrency(received);
+        this.updateReceivedModalSum();
+
+        this.receivedOverlayEl.classList.add('open');
+        this.receivedDrawerEl.classList.add('open');
+        AudioController.beep(550, 0.05);
+      },
+
+      closeReceivedConfirm() {
+        this.receivedOverlayEl.classList.remove('open');
+        this.receivedDrawerEl.classList.remove('open');
+        AudioController.beep(400, 0.05);
+      },
+
+      renderReceivedModalList() {
+        let html = '';
+        for (let denom of DENOMINATIONS) {
+          const count = this.tempReceivedBreakdown[denom.value] || 0;
+          const label = denom.label;
+          const typeClass = denom.type;
+          const formattedText = denom.value === 10000 ? '1万円' : denom.value === 5000 ? '5千円' : label;
+
+          html += `
+            <div class="inventory-row" style="padding: 6px 10px; background: rgba(255,255,255,0.01); border: 1px solid var(--card-border); border-radius: 8px;">
+              <span class="inventory-name ${typeClass}">
+                ${typeClass === 'bill' ? '💵' : '🪙'} ${formattedText}
+              </span>
+              <div class="inventory-controls">
+                <button class="control-btn" style="width: 28px; height: 28px; font-size: 1rem; border-radius: 6px;" onclick="App.adjustTempReceived(${denom.value}, -1)">-</button>
+                <input type="number" class="inventory-val-input" style="width: 45px; padding: 4px 2px; font-size: 1rem; border-radius: 6px;" id="rec-${denom.value}" value="${count}" min="0" oninput="App.setTempReceived(${denom.value}, this.value)">
+                <button class="control-btn" style="width: 28px; height: 28px; font-size: 1rem; border-radius: 6px;" onclick="App.adjustTempReceived(${denom.value}, 1)">+</button>
+              </div>
+            </div>
+          `;
+        }
+        document.getElementById('receivedModalList').innerHTML = html;
+      },
+
+      adjustTempReceived(denom, delta) {
+        let count = this.tempReceivedBreakdown[denom] || 0;
+        count = Math.max(0, count + delta);
+        this.tempReceivedBreakdown[denom] = count;
+        
+        const inputEl = document.getElementById(`rec-${denom}`);
+        if (inputEl) {
+          inputEl.value = count;
+        }
+        this.updateReceivedModalSum();
+        AudioController.beep(700, 0.03);
+      },
+
+      setTempReceived(denom, val) {
+        let count = parseInt(val);
+        if (isNaN(count)) count = 0;
+        count = Math.max(0, count);
+        this.tempReceivedBreakdown[denom] = count;
+        this.updateReceivedModalSum();
+      },
+
+      updateReceivedModalSum() {
+        let sum = 0;
+        for (let denom of DENOMINATIONS) {
+          const count = this.tempReceivedBreakdown[denom.value] || 0;
+          sum += denom.value * count;
+        }
+
+        const targetTotal = parseInt(State.receivedStr) || 0;
+        const currentSumEl = document.getElementById('receivedModalCurrentSum');
+        currentSumEl.textContent = formatCurrency(sum);
+
+        const confirmBtn = document.getElementById('receivedModalConfirmBtn');
+        if (sum === targetTotal) {
+          currentSumEl.style.color = 'var(--accent-green)';
+          confirmBtn.disabled = false;
+          confirmBtn.style.opacity = '1';
+          confirmBtn.style.pointerEvents = 'auto';
+        } else {
+          currentSumEl.style.color = 'var(--accent-red)';
+          confirmBtn.disabled = true;
+          confirmBtn.style.opacity = '0.5';
+          confirmBtn.style.pointerEvents = 'none';
+        }
+      },
+
       // Complete Transaction & Deduct Inventory Counts
       executeTransaction() {
         const price = parseInt(State.priceStr) || 0;
@@ -1632,6 +1800,16 @@
           return;
         }
 
+        // Verify the sum of tempReceivedBreakdown matches received amount
+        let sum = 0;
+        for (let denom of DENOMINATIONS) {
+          sum += denom.value * (this.tempReceivedBreakdown[denom.value] || 0);
+        }
+        if (sum !== received) {
+          alert("入力された金種の合計金額がお預かり総額と一致しません。");
+          return;
+        }
+
         // Run calculation again to deduct
         const result = this.solveChange(delta);
         if (!result.possible) {
@@ -1640,23 +1818,10 @@
           return;
         }
 
-        // Break down received cash to add to stock
-        let receivedRemaining = received;
-        const receivedBreakdown = {};
-        for (let denomConfig of DENOMINATIONS) {
-          const denomVal = denomConfig.value;
-          if (receivedRemaining >= denomVal) {
-            const count = Math.floor(receivedRemaining / denomVal);
-            if (count > 0) {
-              receivedBreakdown[denomVal] = count;
-              receivedRemaining -= denomVal * count;
-            }
-          }
-        }
-
         // Add received cash to stock
-        for (let denomVal of Object.keys(receivedBreakdown)) {
-          State.inventory[denomVal] = (State.inventory[denomVal] || 0) + receivedBreakdown[denomVal];
+        for (let denom of DENOMINATIONS) {
+          const count = this.tempReceivedBreakdown[denom.value] || 0;
+          State.inventory[denom.value] = (State.inventory[denom.value] || 0) + count;
         }
 
         // Deduct bills/coins from stock
@@ -1694,6 +1859,9 @@
         this.renderInventoryConfig();
         this.updateUI();
 
+        // Close Received modal
+        this.closeReceivedConfirm();
+
         // Visual flash overlay animation on transaction success
         const flash = document.createElement('div');
         flash.style.position = 'absolute';
@@ -1719,7 +1887,7 @@
         let alertsHtml = '';
         let warningCount = 0;
         
-        const ignoreList = [10000, 5000, 2000];
+        const ignoreList = [10000, 5000];
         
         for (let denomConfig of DENOMINATIONS) {
           const val = denomConfig.value;

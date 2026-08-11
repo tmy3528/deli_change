@@ -19,6 +19,7 @@
       font-family: 'Outfit', 'Noto Sans JP', sans-serif;
       -webkit-tap-highlight-color: transparent;
       user-select: none;
+      touch-action: manipulation;
     }
 
     :root {
@@ -1449,17 +1450,30 @@
           const deltaY = touchendY - touchstartY;
           
           // Verify it is primarily a horizontal swipe
-          if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 60) {
-            if (deltaX < 0) {
-              // Swiped Left: Backspace
-              backspaceHint.style.opacity = 1;
-              this.handleKeyPress('backspace');
-              setTimeout(() => { backspaceHint.style.opacity = 0; }, 250);
-            } else {
-              // Swiped Right: Clear
-              clearHint.style.opacity = 1;
-              this.handleKeyPress('C');
-              setTimeout(() => { clearHint.style.opacity = 0; }, 250);
+          if (Math.abs(deltaX) > Math.abs(deltaY)) {
+            if (Math.abs(deltaX) > 60) {
+              if (deltaX < 0) {
+                // Swiped Left: Backspace
+                backspaceHint.style.opacity = 1;
+                this.handleKeyPress('backspace');
+                setTimeout(() => { backspaceHint.style.opacity = 0; }, 250);
+              } else {
+                // Swiped Right: Clear
+                clearHint.style.opacity = 1;
+                this.handleKeyPress('C');
+                setTimeout(() => { clearHint.style.opacity = 0; }, 250);
+              }
+            }
+          } else {
+            // Verify if it is primarily a vertical swipe
+            if (Math.abs(deltaY) > 50) {
+              if (deltaY < 0) {
+                // Swiped UP: Switch to received
+                this.setActiveField('received');
+              } else {
+                // Swiped DOWN: Switch to price
+                this.setActiveField('price');
+              }
             }
           }
         };
@@ -1856,16 +1870,6 @@
         if (event.touches.length > 1) {
           event.preventDefault();
         }
-      }, { passive: false });
-
-      // Disable double-tap-to-zoom
-      let lastTouchEnd = 0;
-      document.addEventListener('touchend', function (event) {
-        const now = (new Date()).getTime();
-        if (now - lastTouchEnd <= 300) {
-          event.preventDefault();
-        }
-        lastTouchEnd = now;
       }, { passive: false });
 
       // Disable gesturestart (Safari zoom gesture)
